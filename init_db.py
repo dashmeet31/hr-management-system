@@ -1,37 +1,23 @@
 import sqlite3
 
-conn = sqlite3.connect("hr_management.db")
-cur = conn.cursor()
+def init_db():
+    conn = sqlite3.connect("hr_management.db")
+    cur = conn.cursor()
 
-cur.execute("""
-CREATE TABLE IF NOT EXISTS hr_users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email TEXT UNIQUE,
-    password TEXT
-)
-""")
+    # HR users table
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS hr_users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL
+    )
+    """)
 
-cur.execute("""
-CREATE TABLE IF NOT EXISTS jobs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT,
-    description TEXT,
-    location TEXT,
-    job_type TEXT
-)
-""")
+    # Default HR user
+    cur.execute("""
+    INSERT OR IGNORE INTO hr_users (email, password)
+    VALUES (?, ?)
+    """, ("hr@company.com", "admin123"))
 
-cur.execute("""
-CREATE TABLE IF NOT EXISTS applications (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    job_id INTEGER,
-    applicant_name TEXT,
-    email TEXT,
-    phone TEXT,
-    resume_path TEXT
-)
-""")
-
-conn.commit()
-conn.close()
-print("Database created successfully")
+    conn.commit()
+    conn.close()

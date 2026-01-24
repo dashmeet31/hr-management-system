@@ -11,6 +11,10 @@ from flask import send_from_directory
 import os
 from flask import request
 from flask import request
+from init_db import init_db
+
+init_db()
+
 app = Flask(__name__)
 app.secret_key = "secretkey"
 UPLOAD_FOLDER = "uploads/resumes"
@@ -29,23 +33,24 @@ import os
 def view_resume(filename):
     resume_folder = os.path.join(app.root_path, "uploads", "resumes")
     return send_from_directory(resume_folder, filename)
-
 @app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         email = request.form["email"]
         password = request.form["password"]
 
-        db = get_db()
-        cur = db.cursor()
-        cur.execute("SELECT * FROM hr_users WHERE email=?", (email,))
-        user = cur.fetchone()
-
-        if user and check_password_hash(user["password"], password):
+        # 🔥 TEMP HARD CODE LOGIN
+        if email == "hr@company.com" and password == "admin123":
             session["hr_logged_in"] = True
             return redirect("/dashboard")
+        else:
+            return render_template(
+                "login.html",
+                error="Invalid login"
+            )
 
     return render_template("login.html")
+
 
 @app.route("/dashboard")
 def dashboard():
@@ -281,6 +286,7 @@ def export_filtered_applications(job_id):
     df.to_excel(file_name, index=False)
 
     return send_file(file_name, as_attachment=True)
+
 
 if __name__ == "__main__":
     app.run(debug=True)
