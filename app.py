@@ -153,6 +153,15 @@ def jobs():
 
     return render_template("jobs.html", jobs=jobs)
 
+# =========================
+# SETTINGS
+# =========================
+@app.route("/settings")
+def settings():
+    if not session.get("hr_logged_in"):
+        return redirect("/")
+    return render_template("settings.html")
+
 @app.route("/delete-job/<int:id>")
 def delete_job(id):
     if not session.get("hr_logged_in"):
