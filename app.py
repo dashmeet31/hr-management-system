@@ -97,6 +97,13 @@ with app.app_context():
 # =========================
 # AUTH
 # =========================
+@app.route("/resume/<path:filename>")
+def view_resume(filename):
+    return send_from_directory(
+        app.config["UPLOAD_FOLDER"],
+        filename
+    )
+
 @app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
