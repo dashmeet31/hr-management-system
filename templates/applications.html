@@ -11,22 +11,34 @@
 <!-- ================= TOP ACTION BAR ================= -->
 <div class="action-bar">
 
-    <!-- LEFT : JOB FILTER -->
-    <form method="get" class="filter-form">
-        <select name="job_id" onchange="this.form.submit()">
-            <option value="">All Jobs</option>
+    <!-- LEFT : SEARCH + JOB FILTER -->
+    <div style="display:flex; gap:15px; align-items:center;">
 
-            {% for job in jobs %}
-                <option value="{{ job['id'] }}"
-                    {% if selected_job and job['id']|string == selected_job %}
-                        selected
-                    {% endif %}
-                >
-                    {{ job['title'] }}
-                </option>
-            {% endfor %}
-        </select>
-    </form>
+        <!-- SEARCH BAR -->
+        <input type="text"
+               id="searchInput"
+               placeholder="Search by name, email, phone, job..."
+               onkeyup="searchApplications()"
+               class="search-input">
+
+        <!-- JOB FILTER -->
+        <form method="get" class="filter-form">
+            <select name="job_id" onchange="this.form.submit()">
+                <option value="">All Jobs</option>
+
+                {% for job in jobs %}
+                    <option value="{{ job['id'] }}"
+                        {% if selected_job and job['id']|string == selected_job %}
+                            selected
+                        {% endif %}
+                    >
+                        {{ job['title'] }}
+                    </option>
+                {% endfor %}
+            </select>
+        </form>
+
+    </div>
 
     <!-- RIGHT : DOWNLOAD BUTTONS -->
     <div class="download-buttons">
@@ -46,7 +58,7 @@
 <!-- ================= APPLICATIONS TABLE ================= -->
 <div class="card">
 
-    <table>
+    <table id="applicationsTable">
         <thead>
             <tr>
                 <th>Job</th>
@@ -82,6 +94,19 @@
 
 </div>
 
+<!-- ================= SEARCH JS ================= -->
+<script>
+function searchApplications() {
+    const input = document.getElementById("searchInput").value.toLowerCase();
+    const rows = document.querySelectorAll("#applicationsTable tbody tr");
+
+    rows.forEach(row => {
+        const text = row.innerText.toLowerCase();
+        row.style.display = text.includes(input) ? "" : "none";
+    });
+}
+</script>
+
 <!-- ================= PAGE CSS ================= -->
 <style>
 /* Action bar layout */
@@ -93,10 +118,17 @@
     gap: 20px;
 }
 
+/* Search input */
+.search-input {
+    padding: 8px 12px;
+    width: 260px;
+    border-radius: 8px;
+}
+
 /* Filter form */
 .filter-form select {
     padding: 8px 12px;
-    min-width: 180px;
+    min-width: 160px;
 }
 
 /* Download buttons */

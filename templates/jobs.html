@@ -26,6 +26,10 @@
                 <textarea name="description" placeholder="Job Description" required></textarea>
                 <input type="text" name="location" placeholder="Location" required>
                 <input type="text" name="job_type" placeholder="Job Type (Intern / Full-time)" required>
+                <input type="text"
+       value="Date Posted: {{ today }}"
+       readonly
+       class="readonly-date">
 
                 <!-- NOTE:
                      Job Date user se nahi lenge
@@ -171,6 +175,12 @@ button {
 button:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(255, 255, 255, 0.15);
+}
+
+.readonly-date {
+    opacity: 0.7;
+    cursor: not-allowed;
+    background: rgba(255, 255, 255, 0.05);
 }
 
 </style>

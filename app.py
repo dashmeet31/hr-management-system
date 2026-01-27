@@ -4,6 +4,7 @@ import pandas as pd
 import psycopg2
 import psycopg2.extras
 from urllib.parse import urlparse
+from datetime import date
 
 # =========================
 # BASIC APP CONFIG
@@ -160,7 +161,12 @@ def jobs():
     jobs = cur.fetchall()
     db.close()
 
-    return render_template("jobs.html", jobs=jobs)
+    return render_template(
+    "jobs.html",
+    jobs=jobs,
+    today=date.today().strftime("%d %b %Y")
+)
+
 
 # =========================
 # SETTINGS
