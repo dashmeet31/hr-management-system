@@ -56,30 +56,39 @@ def init_db():
     conn = get_db()
     cur = conn.cursor()
 
+    # Create jobs table (basic)
     cur.execute("""
-    CREATE TABLE IF NOT EXISTS jobs (
-        id SERIAL PRIMARY KEY,
-        title TEXT,
-        description TEXT,
-        location TEXT,
-        job_type TEXT
-    )
+        CREATE TABLE IF NOT EXISTS jobs (
+            id SERIAL PRIMARY KEY,
+            title TEXT,
+            description TEXT,
+            location TEXT,
+            job_type TEXT
+        )
     """)
 
+    # Add posted_at column safely (if not exists)
     cur.execute("""
-    CREATE TABLE IF NOT EXISTS applications (
-        id SERIAL PRIMARY KEY,
-        job_id INTEGER REFERENCES jobs(id),
-        applicant_name TEXT,
-        email TEXT,
-        phone TEXT,
-        resume_path TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
+        ALTER TABLE jobs
+        ADD COLUMN IF NOT EXISTS posted_at DATE DEFAULT CURRENT_DATE
+    """)
+
+    # Create applications table
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS applications (
+            id SERIAL PRIMARY KEY,
+            job_id INTEGER REFERENCES jobs(id),
+            applicant_name TEXT,
+            email TEXT,
+            phone TEXT,
+            resume_path TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
     """)
 
     conn.commit()
     conn.close()
+
 
 with app.app_context():
     init_db()
@@ -137,8 +146,8 @@ def jobs():
 
     if request.method == "POST":
         cur.execute("""
-            INSERT INTO jobs (title, description, location, job_type)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO jobs (title, description, location, job_type, posted_at)
+            VALUES (%s, %s, %s, %s, CURRENT_DATE)
         """, (
             request.form.get("title"),
             request.form.get("description"),

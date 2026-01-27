@@ -27,6 +27,11 @@
                 <input type="text" name="location" placeholder="Location" required>
                 <input type="text" name="job_type" placeholder="Job Type (Intern / Full-time)" required>
 
+                <!-- NOTE:
+                     Job Date user se nahi lenge
+                     Backend me auto set hogi (CURRENT_DATE)
+                -->
+
                 <button type="submit">Add Job</button>
             </form>
         </div>
@@ -43,6 +48,7 @@
                     <th>Title</th>
                     <th>Location</th>
                     <th>Type</th>
+                    <th>Date Posted</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -54,6 +60,13 @@
                     <td>{{ job["location"] }}</td>
                     <td>{{ job["job_type"] }}</td>
                     <td>
+                        {% if job["posted_at"] %}
+                            {{ job["posted_at"] }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td>
                         <a href="/apply/{{ job['id'] }}">Apply</a> |
                         <a href="/edit-job/{{ job['id'] }}">Edit</a> |
                         <a href="/delete-job/{{ job['id'] }}">Delete</a>
@@ -61,7 +74,7 @@
                 </tr>
             {% else %}
                 <tr>
-                    <td colspan="4" style="text-align:center;color:#94a3b8;">
+                    <td colspan="5" style="text-align:center;color:#94a3b8;">
                         No jobs found
                     </td>
                 </tr>
