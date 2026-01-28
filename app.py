@@ -1,9 +1,11 @@
 from flask import Flask, render_template, request, redirect, session, send_file
-from werkzeug.security import check_password_hash
-from supabase import create_client
+from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import pandas as pd
 from datetime import datetime
+import psycopg2
+import psycopg2.extras
+from urllib.parse import urlparse
 
 # =========================
 # APP CONFIG
@@ -12,15 +14,75 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "fallback-secret")
 
 # =========================
-# SUPABASE CONFIG
+# DATABASE CONNECTION (SUPABASE POOLER)
 # =========================
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+def get_db(dict_cursor=False):
+    db_url = os.getenv("DATABASE_URL")
+    if not db_url:
+        raise Exception("DATABASE_URL not set")
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise Exception("Supabase credentials not set")
+    result = urlparse(db_url)
 
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    return psycopg2.connect(
+        dbname=result.path[1:],
+        user=result.username,
+        password=result.password,
+        host=result.hostname,
+        port=result.port,
+        sslmode="require",
+        cursor_factory=psycopg2.extras.RealDictCursor if dict_cursor else None
+    )
+
+# =========================
+# INIT DATABASE (SAFE)
+# =========================
+def init_db():
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS admins (
+            id SERIAL PRIMARY KEY,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS jobs (
+            id SERIAL PRIMARY KEY,
+            title TEXT,
+            description TEXT,
+            location TEXT,
+            job_type TEXT,
+            posted_at DATE DEFAULT CURRENT_DATE
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS applications (
+            id SERIAL PRIMARY KEY,
+            job_id INTEGER REFERENCES jobs(id) ON DELETE CASCADE,
+            applicant_name TEXT,
+            email TEXT,
+            phone TEXT,
+            resume_url TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Default admin (PLAIN PASSWORD – stable for now)
+    cur.execute("""
+        INSERT INTO admins (email, password)
+        VALUES (%s, %s)
+        ON CONFLICT (email) DO NOTHING
+    """, ("admin@hr.com", "admin123"))
+
+    db.commit()
+    db.close()
+
+with app.app_context():
+    init_db()
 
 # =========================
 # AUTH
@@ -31,14 +93,13 @@ def login():
         email = request.form.get("email")
         password = request.form.get("password")
 
-        res = supabase.table("admins").select("*").eq("email", email).execute()
+        db = get_db(dict_cursor=True)
+        cur = db.cursor()
+        cur.execute("SELECT * FROM admins WHERE email=%s", (email,))
+        admin = cur.fetchone()
+        db.close()
 
-        if not res.data:
-            return "Invalid login", 401
-
-        admin = res.data[0]
-
-        if check_password_hash(admin["password"], password):
+        if admin and admin["password"] == password:
             session.clear()
             session["hr_logged_in"] = True
             session["admin_email"] = email
@@ -61,13 +122,18 @@ def dashboard():
     if not session.get("hr_logged_in"):
         return redirect("/")
 
-    jobs = supabase.table("jobs").select("id").execute().data
-    applications = supabase.table("applications").select("id").execute().data
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("SELECT COUNT(*) FROM jobs")
+    total_jobs = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) FROM applications")
+    total_applications = cur.fetchone()[0]
+    db.close()
 
     return render_template(
         "dashboard.html",
-        total_jobs=len(jobs),
-        total_applications=len(applications)
+        total_jobs=total_jobs,
+        total_applications=total_applications
     )
 
 # =========================
@@ -78,16 +144,25 @@ def jobs():
     if not session.get("hr_logged_in"):
         return redirect("/")
 
-    if request.method == "POST":
-        supabase.table("jobs").insert({
-            "title": request.form.get("title"),
-            "description": request.form.get("description"),
-            "location": request.form.get("location"),
-            "job_type": request.form.get("job_type"),
-            "posted_at": datetime.utcnow().date().isoformat()
-        }).execute()
+    db = get_db(dict_cursor=True)
+    cur = db.cursor()
 
-    jobs = supabase.table("jobs").select("*").order("id", desc=True).execute().data
+    if request.method == "POST":
+        cur.execute("""
+            INSERT INTO jobs (title, description, location, job_type)
+            VALUES (%s, %s, %s, %s)
+        """, (
+            request.form.get("title"),
+            request.form.get("description"),
+            request.form.get("location"),
+            request.form.get("job_type")
+        ))
+        db.commit()
+
+    cur.execute("SELECT * FROM jobs ORDER BY id DESC")
+    jobs = cur.fetchall()
+    db.close()
+
     return render_template("jobs.html", jobs=jobs)
 
 @app.route("/delete-job/<int:id>")
@@ -95,41 +170,49 @@ def delete_job(id):
     if not session.get("hr_logged_in"):
         return redirect("/")
 
-    supabase.table("jobs").delete().eq("id", id).execute()
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("DELETE FROM jobs WHERE id=%s", (id,))
+    db.commit()
+    db.close()
     return redirect("/jobs")
 
 # =========================
-# APPLY JOB
+# APPLY JOB (NO CLOUDINARY / NO SUPABASE SDK)
 # =========================
 @app.route("/apply/<int:job_id>", methods=["GET", "POST"])
 def apply(job_id):
-    job = supabase.table("jobs").select("*").eq("id", job_id).execute().data
+    db = get_db(dict_cursor=True)
+    cur = db.cursor()
+
+    cur.execute("SELECT * FROM jobs WHERE id=%s", (job_id,))
+    job = cur.fetchone()
+
     if not job:
+        db.close()
         return "Job not found", 404
 
     if request.method == "POST":
         resume = request.files.get("resume")
-        filename = f"{job_id}_{int(datetime.utcnow().timestamp())}_{resume.filename}"
+        resume_url = resume.filename if resume else None
 
-        supabase.storage.from_("resumes").upload(
-            filename,
-            resume.read(),
-            {"content-type": resume.content_type}
-        )
+        cur.execute("""
+            INSERT INTO applications (job_id, applicant_name, email, phone, resume_url)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (
+            job_id,
+            request.form.get("name"),
+            request.form.get("email"),
+            request.form.get("phone"),
+            resume_url
+        ))
 
-        resume_url = f"{SUPABASE_URL}/storage/v1/object/public/resumes/{filename}"
-
-        supabase.table("applications").insert({
-            "job_id": job_id,
-            "applicant_name": request.form.get("name"),
-            "email": request.form.get("email"),
-            "phone": request.form.get("phone"),
-            "resume_url": resume_url
-        }).execute()
-
+        db.commit()
+        db.close()
         return "Application submitted successfully!"
 
-    return render_template("apply.html", job=job[0])
+    db.close()
+    return render_template("apply.html", job=job)
 
 # =========================
 # APPLICATIONS
@@ -139,8 +222,21 @@ def applications():
     if not session.get("hr_logged_in"):
         return redirect("/")
 
-    jobs = supabase.table("jobs").select("id,title").execute().data
-    applications = supabase.table("applications").select("*").execute().data
+    db = get_db(dict_cursor=True)
+    cur = db.cursor()
+
+    cur.execute("""
+        SELECT applications.*, jobs.title AS job_title
+        FROM applications
+        JOIN jobs ON applications.job_id = jobs.id
+        ORDER BY applications.id DESC
+    """)
+    applications = cur.fetchall()
+
+    cur.execute("SELECT id, title FROM jobs")
+    jobs = cur.fetchall()
+
+    db.close()
 
     return render_template(
         "applications.html",
@@ -148,3 +244,24 @@ def applications():
         jobs=jobs,
         selected_job=None
     )
+
+# =========================
+# EXPORT
+# =========================
+@app.route("/export-applications/<int:job_id>")
+def export_filtered_applications(job_id):
+    if not session.get("hr_logged_in"):
+        return redirect("/")
+
+    db = get_db()
+    df = pd.read_sql("""
+        SELECT applicant_name, email, phone
+        FROM applications
+        WHERE job_id = %s
+    """, db, params=(job_id,))
+
+    file_path = "applications.xlsx"
+    df.to_excel(file_path, index=False)
+    db.close()
+
+    return send_file(file_path, as_attachment=True)
