@@ -19,18 +19,26 @@ app.secret_key = os.getenv("SECRET_KEY", "fallback-secret")
 # =========================
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-db_pool = pool.SimpleConnectionPool(
-    minconn=1,
-    maxconn=5,
-    dsn=DATABASE_URL,
-    sslmode="require"
-)
+db_pool = None
+
+def init_db_pool():
+    global db_pool
+    if db_pool is None:
+        db_pool = pool.SimpleConnectionPool(
+            minconn=1,
+            maxconn=5,
+            dsn=os.getenv("DATABASE_URL"),
+            sslmode="require"
+        )
+
 
 def get_db(dict_cursor=False):
+    init_db_pool()
     conn = db_pool.getconn()
     if dict_cursor:
         conn.cursor_factory = psycopg2.extras.RealDictCursor
     return conn
+
 
 def release_db(conn):
     db_pool.putconn(conn)
