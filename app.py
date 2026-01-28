@@ -7,6 +7,8 @@ import psycopg2
 import psycopg2.extras
 from psycopg2 import pool
 from urllib.parse import urlparse
+from dotenv import load_dotenv
+load_dotenv()
 
 # =========================
 # APP CONFIG
