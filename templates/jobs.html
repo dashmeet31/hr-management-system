@@ -18,7 +18,7 @@
                 <input type="text" name="title" placeholder="Job Title" required>
                 <textarea name="description" placeholder="Job Description" required></textarea>
                 <input type="text" name="location" placeholder="Location" required>
-                <input type="text" name="job_type" placeholder="Job Type" required>
+                <input type="text" name="job_type" placeholder="Job Type (Intern / Full-time)" required>
                 <button type="submit">Add Job</button>
             </form>
         </div>
@@ -34,7 +34,7 @@
                     <th>Title</th>
                     <th>Location</th>
                     <th>Type</th>
-                    <th>Date</th>
+                    <th>Date Posted</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -47,14 +47,16 @@
                     <td>{{ job.job_type }}</td>
                     <td>{{ job.posted_at }}</td>
                     <td>
-                        <a href="/apply/{{ job.id }}">Apply</a> |
-                        <a href="/edit-job/{{ job.id }}">Edit</a> |
-                        <a href="/delete-job/{{ job.id }}">Delete</a>
+                        <a href="{{ url_for('apply', job_id=job.id) }}">Apply</a> |
+                        <a href="{{ url_for('edit_job', job_id=job.id) }}">Edit</a> |
+                        <a href="{{ url_for('delete_job', job_id=job.id) }}">Delete</a>
                     </td>
                 </tr>
             {% else %}
                 <tr>
-                    <td colspan="5" style="text-align:center;">No jobs found</td>
+                    <td colspan="5" style="text-align:center; color:#94a3b8;">
+                        No jobs found
+                    </td>
                 </tr>
             {% endfor %}
             </tbody>
@@ -64,9 +66,11 @@
 
 <script>
 function toggleAddJob() {
-    document.getElementById("addJobBody").classList.toggle("open");
-    document.getElementById("addJobIcon").innerText =
-        document.getElementById("addJobBody").classList.contains("open") ? "▲" : "▼";
+    const body = document.getElementById("addJobBody");
+    const icon = document.getElementById("addJobIcon");
+
+    body.classList.toggle("open");
+    icon.innerText = body.classList.contains("open") ? "▲" : "▼";
 }
 </script>
 

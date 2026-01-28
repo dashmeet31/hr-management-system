@@ -4,18 +4,62 @@
 <h1 class="page-title">Job Applications</h1>
 <p class="subtitle">Review and manage candidate applications</p>
 
-<div class="action-bar">
+<!-- ================= ACTION BAR ================= -->
+<div class="action-bar" style="display:flex; gap:16px; align-items:center; margin-bottom:18px;">
+
+    <!-- SEARCH -->
     <input type="text"
            id="searchInput"
            placeholder="Search applications..."
            onkeyup="searchApplications()"
-           class="search-input">
+           class="search-input"
+           style="width:220px">
 
-    <a href="/download-excel">
-        <button>Download Excel</button>
-    </a>
+    <!-- DOWNLOAD BUTTONS -->
+    <div class="download-buttons" style="display:flex; gap:10px;">
+
+        <!-- Download ALL Excel -->
+        <a href="/download-excel">
+            <button type="button" class="btn btn-primary">
+                Download All Excel
+            </button>
+        </a>
+
+        <!-- Download FILTERED Excel -->
+        {% if selected_job %}
+            <a href="/download-excel?job_id={{ selected_job }}">
+                <button type="button" class="btn btn-primary">
+                    Download Filtered Excel
+                </button>
+            </a>
+        {% endif %}
+
+    </div>
 </div>
 
+<!-- ================= FILTER BAR ================= -->
+<form method="GET"
+      action="/applications"
+      class="filter-bar"
+      style="display:flex; gap:12px; align-items:center; margin-bottom:22px;">
+
+    <select name="job_id" class="select">
+        <option value="">All Jobs</option>
+        {% for job in jobs %}
+            <option value="{{ job.id }}"
+                {% if selected_job and selected_job == job.id|string %}selected{% endif %}>
+                {{ job.title }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <button type="submit" class="btn btn-outline">
+        Filter
+    </button>
+
+</form>
+
+<!-- ================= APPLICATIONS TABLE ================= -->
 <div class="card">
     <table id="applicationsTable">
         <thead>
@@ -37,21 +81,26 @@
                 <td>{{ app.phone }}</td>
                 <td>
                     {% if app.resume_url %}
-                        <a href="{{ app.resume_url }}" target="_blank">Open Resume</a>
+                        <a href="{{ app.resume_url }}" target="_blank">
+                            Open Resume
+                        </a>
                     {% else %}
-                        No Resume
+                        <span style="opacity:0.6;">No Resume</span>
                     {% endif %}
                 </td>
             </tr>
         {% else %}
             <tr>
-                <td colspan="5" style="text-align:center;">No applications</td>
+                <td colspan="5" style="text-align:center; opacity:0.6;">
+                    No applications found
+                </td>
             </tr>
         {% endfor %}
         </tbody>
     </table>
 </div>
 
+<!-- ================= SEARCH SCRIPT ================= -->
 <script>
 function searchApplications() {
     const input = document.getElementById("searchInput").value.toLowerCase();
@@ -62,3 +111,51 @@ function searchApplications() {
 </script>
 
 {% endblock %}
+
+<!-- ================= STYLES ================= -->
+<style>
+.search-input{
+    padding:10px 14px;
+    background:#0f0f0f;
+    border:1px solid #222;
+    border-radius:8px;
+    color:white;
+}
+
+.select{
+    padding:10px 14px;
+    background:#0f0f0f;
+    border:1px solid #222;
+    border-radius:8px;
+    color:white;
+    min-width:220px;
+}
+
+.btn{
+    padding:10px 16px;
+    border-radius:8px;
+    font-weight:600;
+    cursor:pointer;
+    transition:0.2s;
+}
+
+.btn-primary{
+    background:white;
+    color:black;
+    border:none;
+}
+
+.btn-primary:hover{
+    background:#e5e5e5;
+}
+
+.btn-outline{
+    background:transparent;
+    border:1px solid #444;
+    color:white;
+}
+
+.btn-outline:hover{
+    background:#111;
+}
+</style>
